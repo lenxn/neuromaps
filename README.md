@@ -35,7 +35,7 @@ This work is partially supported by the HEREDITARY Project, as part of the Europ
 
 When you use the tool for your project, please cite:
 
-* Lengauer, S., Kantz, B., Waldert, P., Tussardi, G., Kohn, N., Schreck, T., NeuroMaps — A Compact Fingerprint for Analyzing Brain Activity EuroVis 2026, 2026. [doi:10.2312/evs.20261005](https://doi.org/10.2312/evs.20261005).
+* Lengauer, S., Kantz, B., Waldert, P., Tussardi, G., Kohn, N., Schreck, T., "NeuroMaps — A Compact Fingerprint for Analyzing Brain Activity," <i>EuroVis 2026</i>, 2026. [doi:10.2312/evs.20261005](https://doi.org/10.2312/evs.20261005).
 
 
 Bibtex:
