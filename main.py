@@ -1,18 +1,22 @@
+"""
+This script generates neuromaps and reference visualizations for the z-loadings from the study by 
+Kohn et al. 2021, as they are shown in the respective EuroVIS paper Lengauer et al. 2026.
+"""
+import os
+from os import path
+import tempfile
+from enum import StrEnum, IntEnum
+from collections import OrderedDict
 import numpy as np
 import numpy.typing as npt
-import neuromaps as nm
 import nibabel as nib
 import matplotlib.pyplot as plt
 import cv2
-from collections import OrderedDict
-from os import path
 from cmcrameri import cm
 import nilearn
-from enum import StrEnum, IntEnum
-import os
 import nilearn.datasets
-import tempfile
 from nilearn.plotting import plot_stat_map, plot_glass_brain
+import neuromaps as nm
 
 
 # z-loadings from the study by Kohn et al. 2021
@@ -116,21 +120,41 @@ def _draw_neuromap(atlas: list[int],
                    beta: float=0,
                    legend_file_name:str="",
                    color_mode: ColorMode=ColorMode.LIGHT):
+    """
+    Draws a neuromap for the given loading and atlas.
+    
+    Args:
+        atlas: The atlas to use for the neuromap.
+        loading: The loading to visualize.
+        mask: The mask to use for the neuromap.
+        shape: The shape of the loading.
+        output_file_name: The name of the output file.
+        beta: The beta governing the morphing of the brain.
+        legend_file_name: The name of the legend file. If empty, no legend will 
+            be saved.
+        color_mode: The color mode to use for the neuromap.
+    """
 
     saliency, labels_contours, proj_vec = nm.get_neuromap(atlas,
                     loading, shape,
-                    morph_beta=beta, 
-                    activity_threshold=10, 
+                    morph_beta=beta,
+                    activity_threshold=10,
                     projection_connectivity=nm.Projection.ConnectivityType.LABEL)
 
     max_val = np.max(np.abs(saliency))
 
     fig, ax = plt.subplots()
-    if color_mode == ColorMode.DARK: ax.set_facecolor('black')
-    saliency = np.transpose(cv2.resize(np.transpose(saliency, (2,1,0)), dsize=None, fx=SCALE_FACTOR, fy=SCALE_FACTOR), (2,1,0))
-    im = ax.imshow(saliency[0], alpha=saliency[1], cmap=cm.vik if color_mode == ColorMode.DARK else cm.managua)
+    if color_mode == ColorMode.DARK:
+        ax.set_facecolor('black')
+    saliency = np.transpose(
+        cv2.resize(np.transpose(saliency, (2,1,0)), dsize=None, fx=SCALE_FACTOR, fy=SCALE_FACTOR),
+        (2,1,0)
+    )
+    im = ax.imshow(saliency[0], alpha=saliency[1],
+                   cmap=cm.vik if color_mode == ColorMode.DARK else cm.managua)
     im.set_clim(-max_val, max_val)
-    if color_mode != ColorMode.DARK: im.set_cmap(im.get_cmap().reversed())
+    if color_mode != ColorMode.DARK:
+        im.set_cmap(im.get_cmap().reversed())
 
     def get_colors_qualitative(idx: int, color_mode: ColorMode) -> list[tuple[int, int, int]]:
         match(color_mode):
@@ -143,7 +167,8 @@ def _draw_neuromap(atlas: list[int],
     for l,label_contours in labels_contours.items():
         if l>0:
             num_labels = len(np.array(np.where((atlas==l) & mask)).T)
-            if num_labels<200: continue
+            if num_labels<200:
+                continue
             linestyle='-' if i < 6 else '--'
             for contour in label_contours:
                 norm_contour = contour * SCALE_FACTOR * NUM_BINS
@@ -155,7 +180,12 @@ def _draw_neuromap(atlas: list[int],
         else:
             for contour in label_contours:
                 norm_brain_contour = contour * NUM_BINS * SCALE_FACTOR
-                ax.fill(norm_brain_contour[:,Coords.X], norm_brain_contour[:,Coords.Y], edgecolor=(.8, .8, .8) if color_mode == ColorMode.DARK else (.5, .5, .5), linewidth=LINE_THICKNESS, fill=False, alpha=.5)
+                ax.fill(norm_brain_contour[:,Coords.X],
+                        norm_brain_contour[:,Coords.Y],
+                        edgecolor=(.8, .8, .8) if color_mode == ColorMode.DARK else (.5, .5, .5),
+                        linewidth=LINE_THICKNESS,
+                        fill=False,
+                        alpha=.5)
 
     # DRAW COMPASS
     arrow_scale = 13
@@ -168,7 +198,7 @@ def _draw_neuromap(atlas: list[int],
     offset = np.array([12, NUM_BINS*SCALE_FACTOR - 12])
 
     def draw_arrow(ax, label, xy, dxy, color, arrowstyle: str='->'):
-        ax.annotate(label, xy=(xy[0], xy[1]), xytext=(xy[0]+dxy[0], xy[1]+dxy[1]), 
+        ax.annotate(label, xy=(xy[0], xy[1]), xytext=(xy[0]+dxy[0], xy[1]+dxy[1]),
                     arrowprops=None, color=color, ha="left",va="bottom")
         ax.annotate("", xy=(xy[0]+dxy[0], xy[1]+dxy[1]), xytext=(xy[0], xy[1]),
             arrowprops=dict(arrowstyle=arrowstyle, color=color))
@@ -204,7 +234,7 @@ def _draw_neuromap(atlas: list[int],
     fig.savefig(output_file_name, bbox_inches="tight")
     plt.close()
 
-    if len(legend_file_name):
+    if legend_file_name:
         handles, labels = ax.get_legend_handles_labels()
         # Remove duplicates while preserving order
         by_label = OrderedDict(zip(labels, handles))
@@ -218,6 +248,12 @@ def _draw_neuromap(atlas: list[int],
 
 
 def _remove_axes_decoration(display):
+    """
+    Removes all the axes decoration from the given nilearn display object.
+
+    Args:
+        display: The nilearn display object to remove the axes decoration from.
+    """
     first_ax = next(iter(display.axes.values()))
     fig = first_ax.ax.figure
 
@@ -233,7 +269,23 @@ def _remove_axes_decoration(display):
         for spine in ax.spines.values():
             spine.set_visible(False)
 
-def _draw_reference(loading, shape, affine, vis: ReferenceVisualization, out_file_name: str, colormode: ColorMode=ColorMode.LIGHT):
+def _draw_reference(loading,
+                    shape,
+                    affine,
+                    vis: ReferenceVisualization,
+                    out_file_name: str,
+                    colormode: ColorMode=ColorMode.LIGHT):
+    """
+    Draws a reference visualization of the given loading, either as a stat map or as a glass brain.
+    
+    Args:
+        loading: The loading to visualize.
+        shape: The shape of the loading.
+        affine: The affine of the loading.
+        vis: The type of reference visualization to draw.
+        out_file_name: The name of the output file.
+        colormode: The color mode to use for the visualization.
+    """
     match colormode:
         case ColorMode.LIGHT:
             cmap = cm.managua.reversed()
@@ -243,15 +295,31 @@ def _draw_reference(loading, shape, affine, vis: ReferenceVisualization, out_fil
     template = nilearn.datasets.load_mni152_template(resolution=1)
     match vis:
         case ReferenceVisualization.STAT_MAP:
-            display = plot_stat_map(nib.Nifti1Image(loading.reshape(shape), affine=affine),
-                                    bg_img=template, black_bg=False,
-                                    threshold=7, cut_coords=[5, -26, 21], 
-                                    draw_cross=False, annotate=False, colorbar=False,
-                                    cmap=cmap, vmin=-vmax, vmax=vmax)
+            display = plot_stat_map(
+                nib.Nifti1Image(loading.reshape(shape), affine=affine),
+                bg_img=template,
+                black_bg=False,
+                threshold=7,
+                cut_coords=[5, -26, 21],
+                draw_cross=False,
+                annotate=False,
+                colorbar=False,
+                cmap=cmap,
+                vmin=-vmax,
+                vmax=vmax
+            )
         case ReferenceVisualization.GLASS_BRAIN:
-            display = plot_glass_brain(nib.Nifti1Image(loading.reshape(shape), affine=affine), threshold=7, cut_coords=[5, -26, 21], plot_abs=False, cmap=cmap, annotate=False, colorbar=False)
+            display = plot_glass_brain(
+                nib.Nifti1Image(loading.reshape(shape), affine=affine),
+                threshold=7,
+                cut_coords=[5, -26, 21],
+                plot_abs=False,
+                cmap=cmap,
+                annotate=False,
+                colorbar=False
+            )
     _remove_axes_decoration(display)
-    
+
     with tempfile.NamedTemporaryFile(suffix=".svg") as tmp:
         display.savefig(
             tmp.name,
@@ -264,6 +332,8 @@ def _draw_reference(loading, shape, affine, vis: ReferenceVisualization, out_fil
 
 
 def main():
+    """The main function of the script. It loads the data, processes it, and generates the neuromaps 
+    and reference visualizations."""
 
     # LOAD THE DATA
     epi_data = []
@@ -275,11 +345,15 @@ def main():
     epi_data = np.moveaxis(epi_data, [4], [1])
     img_size = epi_data.shape[2]*epi_data.shape[3]*epi_data.shape[4]
     data_shape = epi_data[0,0].shape
-    loadings: npt.NDArray[np.float32] = np.reshape(epi_data, (epi_data.shape[0], epi_data.shape[1], img_size))
+    loadings: npt.NDArray[np.float32] = np.reshape(
+        epi_data,
+        (epi_data.shape[0], epi_data.shape[1], img_size)
+    )
     masks: npt.NDArray[np.int32] = np.abs(loadings) > ACTIVATION_THRESHOLD
 
     atlas = nib.load(ATLAS_FILE).get_fdata().astype(int)
-    # the atlas is downsampled as it has double the resolution of the epi data, and flattened to a 1D array for easier processing.
+    # the atlas is downsampled as it has double the resolution of the epi data, and flattened to a
+    # 1D array for easier processing.
     atlas = atlas[::2,::2,::2].flatten()
 
 
@@ -297,13 +371,23 @@ def main():
         loading = loadings[mod,comp]
         mask = masks[mod,comp]
         for color_mode in ColorMode:
-            _draw_reference(loading, data_shape, affine, ReferenceVisualization.STAT_MAP, path.join(OUTPUT_DIR, f"{mod}-{comp}-stat-{color_mode.name.lower()}.pdf"), colormode=color_mode)
+            out_file = path.join(OUTPUT_DIR, f"{mod}-{comp}-stat-{color_mode.name.lower()}.pdf")
+            _draw_reference(loading,
+                            data_shape,
+                            affine,
+                            ReferenceVisualization.STAT_MAP,
+                            out_file,
+                            colormode=color_mode)
             for beta in BETAS:
-                _draw_neuromap(atlas, loading, 
-                               mask, data_shape, 
-                               path.join(OUTPUT_DIR, f"{mod}-{comp}-neuromap-b{beta}-{color_mode.name.lower()}.pdf"), 
-                               beta, color_mode=color_mode, 
-                               legend_file_name=path.join(OUTPUT_DIR, f"{mod}-{comp}-legend-{color_mode.name.lower()}.pdf"))
+                out_file = path.join(OUTPUT_DIR,
+                                     f"{mod}-{comp}-neuromap-b{beta}-{color_mode.name.lower()}.pdf")
+                legend_file = path.join(OUTPUT_DIR,
+                                        f"{mod}-{comp}-legend-{color_mode.name.lower()}.pdf")
+                _draw_neuromap(atlas, loading,
+                               mask, data_shape,
+                               out_file,
+                               beta, color_mode=color_mode,
+                               legend_file_name=legend_file)
 
 if __name__ == '__main__':
     main()
