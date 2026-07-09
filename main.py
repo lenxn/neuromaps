@@ -80,6 +80,9 @@ CONTOUR_COLORS_DARK = [(np.array(c)/255).tolist() for c in (
 
 # physical resolution of the saliency map in the background
 NUM_BINS = 40
+
+# integer parameter for upscaling the saliency map to a higher resolution to 
+# avoid pixelation look and smoother gradients.
 SCALE_FACTOR = 4
 
 # arbitrary scaling factor for scalling the compas axes
@@ -139,7 +142,8 @@ def _draw_neuromap(atlas: list[int],
                     loading, shape,
                     morph_beta=beta,
                     activity_threshold=10,
-                    projection_connectivity=nm.Projection.ConnectivityType.LABEL)
+                    projection_connectivity=nm.Projection.ConnectivityType.LABEL,
+                    saliency_grid_size=NUM_BINS)
 
     max_val = np.max(np.abs(saliency))
 
@@ -179,7 +183,7 @@ def _draw_neuromap(atlas: list[int],
             i += 1
         else:
             for contour in label_contours:
-                norm_brain_contour = contour * NUM_BINS * SCALE_FACTOR
+                norm_brain_contour = contour * SCALE_FACTOR * NUM_BINS
                 ax.fill(norm_brain_contour[:,Coords.X],
                         norm_brain_contour[:,Coords.Y],
                         edgecolor=(.8, .8, .8) if color_mode == ColorMode.DARK else (.5, .5, .5),

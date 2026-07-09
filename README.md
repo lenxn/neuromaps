@@ -23,6 +23,12 @@ After specifying the locations of the input files (loading and atlas) and the ou
 
     python main.py
 
+#### Update 2026-07-08
+
+It was discovered that the `np.linalg.eig` function does **not** return the eigenvalue/eigenvector pairs in sorted fashion (sorted by the magnitude of the eigenvalues), as expected.
+This is relevant, since in cases, where they are not coincidentaly in order the returend projection axes do not correspond to the two most dominant dimensions.
+This was fixed but hidden behind a flag (`projection_sort_by_eigenvalue` in `get_neuromap`) to ensure backwards compability with the results presented in the paper.
+
 ### Contributing
 
 Contributions are welcome!  

@@ -31,6 +31,7 @@ class Projection:
     DEFAULT_ACTIVITY_THRESHOLD: float = 10
     DEFAULT_CLUSTER_SIZE_THRESHOLD: int = 200
     DEFAULT_CONNECTIVITY: ConnectivityType = ConnectivityType.LABEL
+    DEFAULT_SORT_BY_EIGENVALUE: bool = False
 
     # does not consider weighting based on loading -> very low loading equally threated as high one
     @staticmethod
@@ -41,14 +42,27 @@ class Projection:
         locations: npt.NDArray[np.float32],
         shape: tuple[int],
         cluster_size_threshold: int,
-        connectivity: Projection.ConnectivityType) -> npt.NDArray[np.float32]:
+        connectivity: Projection.ConnectivityType,
+        sort_by_eigenvalue: bool) -> npt.NDArray[np.float32]:
         """
         Computes the projection vector to project the 3D voxel positions onto a 2D plane based on 
         the provided atlas, loading values, and specified parameters.
         
+        Args:
+            atlas: A list of integers representing the atlas labels for each voxel.
+            loading: A list of floats representing the loading values for each voxel.
+            activity_threshold: A float threshold for activity; values below this are ignored.
+            locations: A 2D array of shape (N, 3) representing the (x, y, z) coordinates of the 
+                voxels.
+            shape: A tuple representing the dimensions of the 3D volume.
+            cluster_size_threshold: An integer threshold for cluster size in projection.
+            connectivity: A string indicating the type of connectivity for projection.
+            sort_by_eigenvalue: A boolean indicating whether to sort projection clusters 
+                by eigenvalue.
+
         Raises:
             RuntimeError: If the activity_threshold results in an empty loading mask.
-        
+
         Returns:
             A 2D array representing the projection vector.
         """
@@ -59,10 +73,24 @@ class Projection:
         clusters: dict[int, npt.NDArray[np.float32]] = Projection._get_projection_clusters(
             atlas, mask, locations, shape, cluster_size_threshold, connectivity
         )
-        return Projection._calc_proj_vec(clusters)
+        return Projection._calc_proj_vec(clusters, sort_by_eigenvalue)
 
     @staticmethod
-    def _calc_proj_vec(x_n: dict[int, npt.NDArray[np.float32]]):
+    def _calc_proj_vec(
+        x_n: dict[int, npt.NDArray[np.float32]],
+        sort_by_eigenvalue: bool) -> npt.NDArray[np.float32]:
+        """
+        Computes the projection vector based on the provided clusters of voxel positions.
+        
+        Args:
+            x_n: A dictionary mapping each label to its corresponding array of (x, y, z) 
+                coordinates.
+            sort_by_eigenvalue: A boolean indicating whether to sort projection dimensions by 
+                eigenvalue.
+        
+        Returns:
+            A 2D array representing the projection vector.
+        """
         x_stacked = np.vstack(list(x_n.values()))
 
         priori_probs = [len(x)/len(x_stacked) for x in x_n.values()]
@@ -82,8 +110,10 @@ class Projection:
                 m_j = mus[j]
                 s_b += p_i*p_j*np.outer((m_i-m_j).T, (m_i-m_j))
 
-        _,eigvec = np.linalg.eig(np.linalg.inv(s_w)*s_b)
-        return np.array([eigvec[0,:], eigvec[1,:]])
+        eigvals, eigvecs = np.linalg.eig(np.linalg.inv(s_w)*s_b)
+        if sort_by_eigenvalue:
+            eigvecs = eigvecs[np.argsort(np.real(eigvals))[::-1],:]
+        return eigvecs[:2]
 
     @staticmethod
     def _get_projection_clusters(
@@ -402,6 +432,7 @@ def get_neuromap(
         morph_sigma: float = Morphing.DEFAULT_SIGMA,
         projection_cluster_size_threshold: int = Projection.DEFAULT_CLUSTER_SIZE_THRESHOLD,
         projection_connectivity: Projection.ConnectivityType = Projection.DEFAULT_CONNECTIVITY,
+        projection_sort_by_eigenvalue: bool = Projection.DEFAULT_SORT_BY_EIGENVALUE,
         contours_detection_scale: int = Contour.DEFAULT_DETECTION_SCALE,
         contours_spacing: int = Contour.DEFAULT_SPACING,
         contours_smoothing_window: int = Contour.DEFAULT_SMOOTHING_WINDOW,
@@ -427,6 +458,11 @@ def get_neuromap(
         morph_sigma: A float parameter for morphing; controls the radial expansion of the morph.
         projection_cluster_size_threshold: An integer threshold for cluster size in projection.
         projection_connectivity: A string indicating the type of connectivity for projection.
+        projection_sort_by_eigenvalue: A boolean indicating whether to sort projection clusters by 
+            eigenvalue. Generally, they should be sorted by eigenvalue to project along the dominant 
+            directions of the clusters. However, as this was overlooked in the original 
+            implementation this parameter is provided to allow for reproducing the original behavior 
+            if needed.
         contours_detection_scale: An integer scale for contour detection.
         contours_spacing: An integer spacing for contour resampling.
         contours_smoothing_window: An integer window size for contour smoothing.
@@ -474,7 +510,8 @@ def get_neuromap(
     proj_vec = Projection.project(atlas, loading, activity_threshold,
                                   locations, shape,
                                   projection_cluster_size_threshold,
-                                  projection_connectivity)
+                                  projection_connectivity,
+                                  projection_sort_by_eigenvalue)
 
     proj_loc = locations@proj_vec.T
     brain_mask = np.array(atlas)>0
