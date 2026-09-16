@@ -29,6 +29,12 @@ It was discovered that the `np.linalg.eig` function does **not** return the eige
 This is relevant, since in cases, where they are not coincidentaly in order the returend projection axes do not correspond to the two most dominant dimensions.
 This was fixed but hidden behind a flag (`projection_sort_by_eigenvalue` in `get_neuromap`) to ensure backwards compability with the results presented in the paper.
 
+#### Update 2026-09-16
+
+Another error was fixed in the projection logic by changing the multiplication of within and in-between variances from element-wise Hadamard multiplication to matrix multiplication and transforming the resulting eigenvector matrix. 
+
+Additionally a masking was added to the drawing logic in `main.py` to clip the saliencies to the area within the brain contour. 
+
 ### Contributing
 
 Contributions are welcome!  

@@ -19,6 +19,7 @@ from nilearn.plotting import plot_stat_map, plot_glass_brain
 import neuromaps as nm
 
 
+
 # z-loadings from the study by Kohn et al. 2021
 PATH_TO_ACTIVITIES = "../neuromaps-data/loadings/"
 
@@ -184,12 +185,16 @@ def _draw_neuromap(atlas: list[int],
         else:
             for contour in label_contours:
                 norm_brain_contour = contour * SCALE_FACTOR * NUM_BINS
-                ax.fill(norm_brain_contour[:,Coords.X],
-                        norm_brain_contour[:,Coords.Y],
-                        edgecolor=(.8, .8, .8) if color_mode == ColorMode.DARK else (.5, .5, .5),
-                        linewidth=LINE_THICKNESS,
-                        fill=False,
-                        alpha=.5)
+                brain_polygon = ax.fill(norm_brain_contour[:,Coords.X],
+                                        norm_brain_contour[:,Coords.Y],
+                                        edgecolor=(.8, .8, .8) if color_mode == ColorMode.DARK else (.5, .5, .5),
+                                        linewidth=LINE_THICKNESS,
+                                        fill=False,
+                                        alpha=.5)[0]
+            # Set the clipping path for the saliency image to the brain contour 
+            # polygon. Prevents bleeding of the saliency map into the 
+            # sourrounding areas.
+            im.set_clip_path(brain_polygon)
 
     # DRAW COMPASS
     arrow_scale = 13
@@ -387,10 +392,13 @@ def main():
                                      f"{mod}-{comp}-neuromap-b{beta}-{color_mode.name.lower()}.pdf")
                 legend_file = path.join(OUTPUT_DIR,
                                         f"{mod}-{comp}-legend-{color_mode.name.lower()}.pdf")
-                _draw_neuromap(atlas, loading,
-                               mask, data_shape,
+                _draw_neuromap(atlas,
+                               loading,
+                               mask,
+                               data_shape,
                                out_file,
-                               beta, color_mode=color_mode,
+                               beta,
+                               color_mode=color_mode,
                                legend_file_name=legend_file)
 
 if __name__ == '__main__':

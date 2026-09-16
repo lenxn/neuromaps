@@ -110,7 +110,8 @@ class Projection:
                 m_j = mus[j]
                 s_b += p_i*p_j*np.outer((m_i-m_j).T, (m_i-m_j))
 
-        eigvals, eigvecs = np.linalg.eig(np.linalg.inv(s_w)*s_b)
+        eigvals, eigvecs = np.linalg.eig(np.linalg.inv(s_w)@s_b)
+        eigvecs = eigvecs.T
         if sort_by_eigenvalue:
             eigvecs = eigvecs[np.argsort(np.real(eigvals))[::-1],:]
         return eigvecs[:2]
