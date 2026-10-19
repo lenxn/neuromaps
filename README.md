@@ -35,6 +35,10 @@ Another error was fixed in the projection logic by changing the multiplication o
 
 Additionally a masking was added to the drawing logic in `main.py` to clip the saliencies to the area within the brain contour. 
 
+#### Update 2026-10-19
+
+A [DISCLAIMER](DISCLAIMER.md), following the regulations of the funding HEREDITARY (grant agreement No 101137074) project, was added.
+
 ### Contributing
 
 Contributions are welcome!  
